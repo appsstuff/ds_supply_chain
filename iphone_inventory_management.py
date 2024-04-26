@@ -1,4 +1,6 @@
+from math import factorial
 import numpy as np
+import prob
 
 # maximum # of iphones in each location
 MAX_IPHONES = 100
@@ -18,6 +20,8 @@ DELIVERIES_FIRST_LOC = 3
 # expectation for # of iphones delivered in second location
 DELIVERIES_SECOND_LOC = 2
 
+PURCHASES_CREDIT=1
+
 DISCOUNT = 0.9
 
 # Commission earned by an iphone sale
@@ -27,7 +31,7 @@ IPHONE_CREDIT = 10
 MOVE_IPHONE_COST = 2
 
 # all possible actions
-actions = np.arange(-MAX_MOVE_OF_IPHONE, MAX_MOVE_OF_IPHONES + 1)
+actions = np.arange(-MAX_MOVE_OF_IPHONES, MAX_MOVE_OF_IPHONES + 1)
 
 # An up bound for poisson distribution
 # If n is greater than this value, then the probability of getting n is truncated to 0
@@ -40,14 +44,14 @@ def poisson(n, lam):
     global poisson_cache
     key = n * 10 + lam
     if key not in poisson_cache.keys():
-        poisson_cache[key] = exp(-lam) * pow(lam, n) / factorial(n)
+        poisson_cache[key] = np.exp(-lam) * pow(lam, n) / factorial(n)
     return poisson_cache[key]
 
 # @state: [# of iphones in first location, # of iphones in second location]
 # @action: positive if moving iphones from first location to second location,
 #          negative if moving ipones from second location to first location
 # @stateValue: state value matrix
-def expected_return(state, action, state_value, constant_delivered_iphones):
+def expected_return(state, action, state_value, constant_delivered_iphones, purchase_request_first_loc=None):
     # initailize total return
     returns = 0.0
 
@@ -63,16 +67,16 @@ def expected_return(state, action, state_value, constant_delivered_iphones):
 
             # valid iphone purchases should be less than actual # of iphones
             real_purchase_first_loc = min(num_of_iphones_first_loc, iphone_purchases_first_loc)
-            real_purchase_second_loc = min(num_of_iphones_second_loc, iphones_purchases_second_loc)
+            real_purchase_second_loc = min(num_of_iphones_second_loc, iphone_purchases_second_loc)
 
             # get credits for purchasing
-            reward = (real_purchase_first_loc + real_purchase_second_loc) * purchase_CREDIT
+            reward = (real_purchase_first_loc + real_purchase_second_loc) * PURCHASES_CREDIT
             num_of_iphones_first_loc -= real_purchase_first_loc
             num_of_iphones_second_loc -= real_purchase_second_loc
 
             # probability for current combination of purchase requests
-            prob = poisson(purchase_request_first_loc, purchase_REQUEST_FIRST_LOC) * \
-                         poisson(purchase_request_second_loc, purchase_REQUEST_SECOND_LOC)
+            # prob = poisson(purchase_request_first_loc, purchase_REQUEST_FIRST_LOC) * \
+            #              poisson(purchase_request_second_loc, purchase_REQUEST_SECOND_LOC)
 
             if constant_delivered_iphones:
                 # get delivered iphones, those iphones can be used for purchasing tomorrow
@@ -84,22 +88,20 @@ def expected_return(state, action, state_value, constant_delivered_iphones):
            
     return returns
 
-def policy_iteration(constant_delivered_iphones=True):
+def policy_iteration(constant_delivered_iphones=True, iterations=None):
     value = np.zeros((MAX_IPHONES + 1, MAX_IPHONES + 1))
     policy = np.zeros(value.shape, dtype=np.int)
-
-        # policy evaluation (in-place)
-        while True:
-            new_value = np.copy(value)
-            for i in range(MAX_IPHONES + 1):
-                for j in range(MAX_IPHONES + 1):
-                    new_value[i, j] = expected_return([i, j], policy[i, j], new_value,
-                                                      constant_delivered_iphones)
-            value_change = np.abs((new_value - value)).sum()
-            print('value change %f' % (value_change))
-            value = new_value
-            if value_change < 1e-4:
-                break
+    while True:
+        new_value = np.copy(value)
+        for i in range(MAX_IPHONES + 1):
+            for j in range(MAX_IPHONES + 1):
+                new_value[i, j] = expected_return([i, j], policy[i, j], new_value,
+                                                  constant_delivered_iphones)
+        value_change = np.abs((new_value - value)).sum()
+        print('value change %f' % (value_change))
+        value = new_value
+        if value_change < 1e-4:
+            break
 
         # policy improvement
         new_policy = np.copy(policy)
@@ -116,7 +118,7 @@ def policy_iteration(constant_delivered_iphones=True):
         policy_change = (new_policy != policy).sum()
         print('policy changed in %d states' % (policy_change))
         policy = new_policy
-        iterations += 1
+        # iterations+=1
 
 if __name__ == '__main__':
     policy_iteration()

@@ -7,6 +7,8 @@ from __future__ import print_function
 import numpy as np
 import time
 import os
+
+from pycparser.ply.cpp import xrange
 from scipy.stats import poisson
 
 # local import
